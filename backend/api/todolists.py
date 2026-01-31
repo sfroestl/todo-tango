@@ -56,7 +56,8 @@ def create_item_endpoint(list_id: str, data: TodoItemCreate) -> TodoItem:
 def update_item_endpoint(
     list_id: str, item_id: str, data: TodoItemUpdate
 ) -> TodoItem:
-    """Update a todo item (title and/or completed)."""
+    """Update a todo item (title, completed, and/or order)."""
+    print(f"Updating item {item_id} in list {list_id} with data: {data}")
     if get_todolist(list_id) is None:
         raise HTTPException(status_code=404, detail="Todo list not found")
     item = update_item_svc(list_id, item_id, data)

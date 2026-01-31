@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -15,6 +15,44 @@ export interface TodoItem {
 export interface TodoList {
   id: string
   name: string
+}
+
+function ChevronUpIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m18 15-6-6-6 6" />
+    </svg>
+  )
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
 }
 
 async function fetchTodoList(listId: string): Promise<TodoList | null> {
@@ -46,7 +84,7 @@ async function createItem(
 async function updateItem(
   listId: string,
   itemId: string,
-  patch: { title?: string; completed?: boolean }
+  patch: { title?: string; completed?: boolean; order?: number }
 ): Promise<TodoItem> {
   const res = await fetch(
     `${API_BASE}/todolists/${listId}/items/${itemId}`,
@@ -80,7 +118,7 @@ export function TodoListDetail() {
   })
 
   const {
-    data: items,
+    data: items = [],
     isLoading: itemsLoading,
     isError: itemsError,
     error: itemsErrorObj,
@@ -89,6 +127,17 @@ export function TodoListDetail() {
     queryFn: () => fetchItems(listId),
     enabled: !!listId,
   })
+
+  const sortedItems = useMemo(
+    () =>
+      [...items].sort((a, b) => {
+        const orderA = a.order ?? 0
+        const orderB = b.order ?? 0
+        if (orderA !== orderB) return orderA - orderB
+        return a.id.localeCompare(b.id)
+      }),
+    [items]
+  )
 
   const createMutation = useMutation({
     mutationFn: () => createItem(listId, newTitle.trim()),
@@ -117,6 +166,32 @@ export function TodoListDetail() {
 
   const deleteMutation = useMutation({
     mutationFn: (itemId: string) => deleteItem(listId, itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['todolists', listId, 'items'],
+      })
+    },
+  })
+
+  const moveMutation = useMutation({
+    mutationFn: async ({
+      itemId,
+      direction,
+    }: {
+      itemId: string
+      direction: 'up' | 'down'
+    }) => {
+      const idx = sortedItems.findIndex((i) => i.id === itemId)
+      if (idx === -1) throw new Error('Item not found')
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= sortedItems.length)
+        throw new Error('Cannot move in that direction')
+      const item = sortedItems[idx]
+      const neighbour = sortedItems[swapIdx]
+      // Use list index as order so swap works even when stored order is 0
+      await updateItem(listId, item.id, { order: swapIdx })
+      await updateItem(listId, neighbour.id, { order: idx })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['todolists', listId, 'items'],
@@ -199,15 +274,45 @@ export function TodoListDetail() {
 
         {itemsLoading ? (
           <p className="text-slate-600">Loading items…</p>
-        ) : items?.length === 0 ? (
+        ) : sortedItems.length === 0 ? (
           <p className="text-slate-600">No items yet. Add one above.</p>
         ) : (
           <ul className="space-y-2">
-            {items?.map((item) => (
+            {sortedItems.map((item, index) => (
               <li
                 key={item.id}
                 className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
               >
+                <div className="flex flex-col">
+                  <button
+                    type="button"
+                    aria-label="Move up"
+                    disabled={index === 0 || moveMutation.isPending}
+                    onClick={() =>
+                      moveMutation.mutate({ itemId: item.id, direction: 'up' })
+                    }
+                    className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                  >
+                    <ChevronUpIcon />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Move down"
+                    disabled={
+                      index === sortedItems.length - 1 ||
+                      moveMutation.isPending
+                    }
+                    onClick={() =>
+                      moveMutation.mutate({
+                        itemId: item.id,
+                        direction: 'down',
+                      })
+                    }
+                    className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                  >
+                    <ChevronDownIcon />
+                  </button>
+                </div>
                 <input
                   type="checkbox"
                   checked={item.completed}

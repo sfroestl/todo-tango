@@ -49,7 +49,8 @@ def create_item(list_id: str, data: TodoItemCreate) -> TodoItem | None:
     """Create a new todo item in a list. Returns None if list not found."""
     if get_todolist(list_id) is None:
         return None
-    order = data.order if data.order is not None else 0
+    existing = get_items(list_id)
+    order = data.order if data.order is not None else len(existing)
     new_item = TodoItem(
         id=f"ti-{uuid.uuid4().hex[:8]}",
         todolist_id=list_id,
