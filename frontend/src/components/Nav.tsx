@@ -4,6 +4,7 @@ import { Link, useRouterState } from '@tanstack/react-router'
 const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/todo-lists', label: 'Todo lists' },
+  { to: '/login', label: 'Login' },
 ] as const
 
 export function Nav() {
