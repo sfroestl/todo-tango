@@ -21,7 +21,7 @@ export function Nav() {
             to="/"
             className="text-lg font-semibold tracking-tight text-white hover:text-slate-200"
           >
-            AI Bridge
+            Todo Tango
           </Link>
 
           {/* Desktop links */}
