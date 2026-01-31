@@ -1,4 +1,6 @@
-from schemas.todolist import TodoList
+import uuid
+
+from schemas.todolist import TodoList, TodoListCreate
 
 MOCK_TODOLISTS: list[TodoList] = [
     TodoList(id="tl-1", name="Work"),
@@ -10,3 +12,10 @@ MOCK_TODOLISTS: list[TodoList] = [
 def get_all_todolists() -> list[TodoList]:
     """Return all todo lists (mocked)."""
     return MOCK_TODOLISTS
+
+
+def create_todolist(data: TodoListCreate) -> TodoList:
+    """Create a new todo list (mocked)."""
+    new_list = TodoList(id=f"tl-{uuid.uuid4().hex[:8]}", name=data.name)
+    MOCK_TODOLISTS.append(new_list)
+    return new_list
