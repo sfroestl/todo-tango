@@ -33,6 +33,11 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Coverage
+.coverage
+htmlcov/
+.coverage.*
+
 # Build / misc
 *.log
 .cache/

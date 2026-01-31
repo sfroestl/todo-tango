@@ -18,6 +18,12 @@ From the project root you can use:
 
 - **`./run-backend.sh`** — starts the backend (run from `backend/` with `uvicorn main:app --reload`). Ensure you have a venv and dependencies installed first.
 - **`./run-frontend.sh`** — starts the frontend dev server (run from `frontend/` with `npm run dev`). Run `npm install` in `frontend/` first if needed.
+- **`./run-tests.sh`** — runs backend tests in watch mode; reruns when a backend file changes (uses `pytest-watch`).
+- **`./run-tests-coverage.sh`** — runs backend tests once with code coverage (percentage and missing lines per file).
+
+Run test coverage
+- **`cd backend && pytest tests/ --cov --cov-report=html`** 
+# open htmlcov/index.html
 
 ### 1. Backend (Python FastAPI)
 
