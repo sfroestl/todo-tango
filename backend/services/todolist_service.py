@@ -32,7 +32,7 @@ def get_todolist(list_id: str) -> TodoList | None:
 
 def create_todolist(data: TodoListCreate) -> TodoList:
     """Create a new todo list (mocked)."""
-    new_list = TodoList(id=f"tl-{uuid.uuid4().hex[:8]}", name=data.name)
+    new_list = TodoList(id=str(uuid.uuid4()), name=data.name.strip())
     MOCK_TODOLISTS.append(new_list)
     return new_list
 
