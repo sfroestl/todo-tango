@@ -14,6 +14,11 @@ A minimal full-stack app with a **Python FastAPI** backend and a **Vite + React*
 
 ## Running the app
 
+From the project root you can use:
+
+- **`./run-backend.sh`** — starts the backend (run from `backend/` with `uvicorn main:app --reload`). Ensure you have a venv and dependencies installed first.
+- **`./run-frontend.sh`** — starts the frontend dev server (run from `frontend/` with `npm run dev`). Run `npm install` in `frontend/` first if needed.
+
 ### 1. Backend (Python FastAPI)
 
 ```bash
