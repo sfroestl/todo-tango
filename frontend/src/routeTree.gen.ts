@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodoListsRouteImport } from './routes/todo-lists'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TodoListsIndexRouteImport } from './routes/todo-lists.index'
+import { Route as TodoListsListIdRouteImport } from './routes/todo-lists.$listId'
 import { Route as LoginSuccessRouteImport } from './routes/login.success'
 
 const TodoListsRoute = TodoListsRouteImport.update({
@@ -29,6 +31,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TodoListsIndexRoute = TodoListsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TodoListsRoute,
+} as any)
+const TodoListsListIdRoute = TodoListsListIdRouteImport.update({
+  id: '/$listId',
+  path: '/$listId',
+  getParentRoute: () => TodoListsRoute,
+} as any)
 const LoginSuccessRoute = LoginSuccessRouteImport.update({
   id: '/success',
   path: '/success',
@@ -38,34 +50,52 @@ const LoginSuccessRoute = LoginSuccessRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRouteWithChildren
-  '/todo-lists': typeof TodoListsRoute
+  '/todo-lists': typeof TodoListsRouteWithChildren
   '/login/success': typeof LoginSuccessRoute
+  '/todo-lists/$listId': typeof TodoListsListIdRoute
+  '/todo-lists/': typeof TodoListsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRouteWithChildren
-  '/todo-lists': typeof TodoListsRoute
   '/login/success': typeof LoginSuccessRoute
+  '/todo-lists/$listId': typeof TodoListsListIdRoute
+  '/todo-lists': typeof TodoListsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRouteWithChildren
-  '/todo-lists': typeof TodoListsRoute
+  '/todo-lists': typeof TodoListsRouteWithChildren
   '/login/success': typeof LoginSuccessRoute
+  '/todo-lists/$listId': typeof TodoListsListIdRoute
+  '/todo-lists/': typeof TodoListsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/todo-lists' | '/login/success'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/todo-lists'
+    | '/login/success'
+    | '/todo-lists/$listId'
+    | '/todo-lists/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/todo-lists' | '/login/success'
-  id: '__root__' | '/' | '/login' | '/todo-lists' | '/login/success'
+  to: '/' | '/login' | '/login/success' | '/todo-lists/$listId' | '/todo-lists'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/todo-lists'
+    | '/login/success'
+    | '/todo-lists/$listId'
+    | '/todo-lists/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRouteWithChildren
-  TodoListsRoute: typeof TodoListsRoute
+  TodoListsRoute: typeof TodoListsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -91,6 +121,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/todo-lists/': {
+      id: '/todo-lists/'
+      path: '/'
+      fullPath: '/todo-lists/'
+      preLoaderRoute: typeof TodoListsIndexRouteImport
+      parentRoute: typeof TodoListsRoute
+    }
+    '/todo-lists/$listId': {
+      id: '/todo-lists/$listId'
+      path: '/$listId'
+      fullPath: '/todo-lists/$listId'
+      preLoaderRoute: typeof TodoListsListIdRouteImport
+      parentRoute: typeof TodoListsRoute
+    }
     '/login/success': {
       id: '/login/success'
       path: '/success'
@@ -111,10 +155,24 @@ const LoginRouteChildren: LoginRouteChildren = {
 
 const LoginRouteWithChildren = LoginRoute._addFileChildren(LoginRouteChildren)
 
+interface TodoListsRouteChildren {
+  TodoListsListIdRoute: typeof TodoListsListIdRoute
+  TodoListsIndexRoute: typeof TodoListsIndexRoute
+}
+
+const TodoListsRouteChildren: TodoListsRouteChildren = {
+  TodoListsListIdRoute: TodoListsListIdRoute,
+  TodoListsIndexRoute: TodoListsIndexRoute,
+}
+
+const TodoListsRouteWithChildren = TodoListsRoute._addFileChildren(
+  TodoListsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRouteWithChildren,
-  TodoListsRoute: TodoListsRoute,
+  TodoListsRoute: TodoListsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

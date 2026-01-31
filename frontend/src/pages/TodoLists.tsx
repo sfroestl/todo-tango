@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -126,10 +127,17 @@ export function TodoLists() {
             {todoLists?.map((list) => (
               <li
                 key={list.id}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                className="rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-slate-300"
               >
-                <span className="font-medium text-slate-800">{list.name}</span>
-                <span className="text-sm text-slate-500">({list.id})</span>
+                <Link
+                  to="/todo-lists/$listId"
+                  params={{ listId: list.id }}
+                  className="flex items-center gap-3 px-4 py-3 text-left"
+                >
+                  <span className="font-medium text-slate-800">{list.name}</span>
+                  <span className="text-sm text-slate-500">({list.id})</span>
+                  <span className="ml-auto text-slate-400">→</span>
+                </Link>
               </li>
             ))}
           </ul>

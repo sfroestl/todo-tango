@@ -1,6 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { TodoLists } from '../pages/TodoLists'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
+
+function TodoListsLayout() {
+  return <Outlet />
+}
 
 export const Route = createFileRoute('/todo-lists')({
-  component: TodoLists,
+  component: TodoListsLayout,
 })
