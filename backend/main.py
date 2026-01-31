@@ -1,6 +1,10 @@
+from pathlib import Path
+
 from dotenv import load_dotenv
 
+# Load .env, then .env.local (local overrides for credentials)
 load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env.local", override=True)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
