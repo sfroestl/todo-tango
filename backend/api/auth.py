@@ -112,6 +112,7 @@ async def auth_google_callback(
         "sub": user_info.get("id"),
         "email": user_info.get("email"),
         "name": user_info.get("name", ""),
+        "picture": user_info.get("picture", ""),
     }
 
     # Redirect to frontend success page; set httpOnly session cookie (browser can't read it)
