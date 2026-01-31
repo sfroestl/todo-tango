@@ -38,21 +38,24 @@ def create_todolist(data: TodoListCreate) -> TodoList:
 
 
 def get_items(list_id: str) -> list[TodoItem]:
-    """Return all items for a todo list."""
+    """Return all items for a todo list, sorted by order then id (stable when order ties)."""
     if get_todolist(list_id) is None:
         return []
-    return [i for i in MOCK_TODO_ITEMS if i.todolist_id == list_id]
+    items = [i for i in MOCK_TODO_ITEMS if i.todolist_id == list_id]
+    return sorted(items, key=lambda i: (getattr(i, "order", 0), i.id))
 
 
 def create_item(list_id: str, data: TodoItemCreate) -> TodoItem | None:
     """Create a new todo item in a list. Returns None if list not found."""
     if get_todolist(list_id) is None:
         return None
+    order = data.order if data.order is not None else 0
     new_item = TodoItem(
         id=f"ti-{uuid.uuid4().hex[:8]}",
         todolist_id=list_id,
         title=data.title.strip(),
         completed=False,
+        order=order,
     )
     MOCK_TODO_ITEMS.append(new_item)
     return new_item
@@ -83,6 +86,8 @@ def update_item(
         payload["title"] = data.title.strip()
     if data.completed is not None:
         payload["completed"] = data.completed
+    if data.order is not None:
+        payload["order"] = data.order
     updated = TodoItem(**payload)
     MOCK_TODO_ITEMS[idx] = updated
     return updated

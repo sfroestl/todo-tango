@@ -15,12 +15,15 @@ class TodoItem(BaseModel):
     todolist_id: str
     title: str
     completed: bool = False
+    order: int = 0  # Optional; 0 when empty. Sort items by (order, id) for stable ordering.
 
 
 class TodoItemCreate(BaseModel):
     title: str
+    order: int | None = None  # Optional; defaults to 0 when creating
 
 
 class TodoItemUpdate(BaseModel):
     title: str | None = None
     completed: bool | None = None
+    order: int | None = None

@@ -9,6 +9,7 @@ export interface TodoItem {
   todolist_id: string
   title: string
   completed: boolean
+  order?: number // optional; 0 when empty. Items are sorted by (order, id).
 }
 
 export interface TodoList {
