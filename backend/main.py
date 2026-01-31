@@ -1,9 +1,15 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.auth import router as auth_router
 from api.todolists import router as todolists_router
 
 app = FastAPI(title="Hello World API")
+app.include_router(auth_router)
 app.include_router(todolists_router)
 
 app.add_middleware(
