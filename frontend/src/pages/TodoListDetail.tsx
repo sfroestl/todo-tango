@@ -296,7 +296,20 @@ export function TodoListDetail() {
             ← Todo lists
           </Link>
         </div>
-        <h1 className="text-2xl font-bold text-slate-800 mb-6">{list.name}</h1>
+        <h1 className="text-2xl font-bold text-slate-800 mb-4">{list.name}</h1>
+
+        {!itemsLoading && (
+          <div className="mb-6" role="progressbar" aria-valuenow={sortedItems.length ? Math.round((completedItems.length / sortedItems.length) * 100) : 0} aria-valuemin={0} aria-valuemax={100} aria-label="List completion">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-[width] duration-300 ease-out"
+                style={{
+                  width: sortedItems.length ? `${(completedItems.length / sortedItems.length) * 100}%` : '0%',
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleAdd} className="mb-6 flex gap-2">
           <input
