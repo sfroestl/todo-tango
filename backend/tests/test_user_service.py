@@ -1,24 +1,8 @@
 """Tests for user creation and get_or_create_user."""
-import pytest
 from sqlalchemy.orm import Session
 
-from database import Base, SessionLocal, engine
-import models  # noqa: F401 - register models so create_all creates users table
 from models.user import User
 from services.user_service import get_or_create_user
-
-
-@pytest.fixture
-def db() -> Session:
-    """Provide a DB session; ensure tables exist and clear users before each test."""
-    Base.metadata.create_all(bind=engine)
-    session = SessionLocal()
-    session.query(User).delete()
-    session.commit()
-    try:
-        yield session
-    finally:
-        session.close()
 
 
 def test_get_or_create_user_creates_new_user(db: Session) -> None:

@@ -1,4 +1,5 @@
 """Tests for session management: /auth/me and /auth/logout."""
+import uuid
 from uuid import uuid4
 
 import pytest
@@ -76,3 +77,35 @@ def test_auth_logout_idempotent_when_not_logged_in(client: TestClient) -> None:
     """POST /auth/logout without a valid session still returns 200."""
     response = client.post("/auth/logout")
     assert response.status_code == 200
+
+
+def test_list_users_returns_401_when_not_authenticated(client: TestClient) -> None:
+    """GET /auth/users returns 401 when no session cookie."""
+    response = client.get("/auth/users")
+    assert response.status_code == 401
+
+
+def test_list_users_returns_users_when_authenticated(client: TestClient, db) -> None:
+    """GET /auth/users returns list of users when authenticated."""
+    from services.user_service import get_or_create_user
+
+    get_or_create_user(db, google_sub="g1", email="u1@example.com", name="User One")
+    get_or_create_user(db, google_sub="g2", email="u2@example.com", name="User Two")
+    session_id = "list-users-session"
+    _sessions[session_id] = {
+        "user_id": str(uuid.uuid4()),
+        "sub": "g1",
+        "email": "u1@example.com",
+        "name": "User One",
+        "picture": "",
+    }
+
+    response = client.get("/auth/users", cookies={"session": session_id})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    emails = {u["email"] for u in data}
+    assert emails == {"u1@example.com", "u2@example.com"}
+    for u in data:
+        assert "id" in u and "name" in u and "picture" in u and "created_at" in u

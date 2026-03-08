@@ -45,3 +45,6 @@ htmlcov/
 # SQLite (dev)
 backend/todo_tango.db
 *.db
+
+# Test DB
+backend/tests/tmp/

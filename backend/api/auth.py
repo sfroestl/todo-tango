@@ -14,13 +14,22 @@ from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Cookie, HTTPException, Query
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from database import SessionLocal
+from models.user import User
+from schemas.user import UserResponse
 from services.user_service import get_or_create_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def get_current_user(session: Optional[str] = Cookie(None)) -> dict:
+    """Dependency: return current session user dict or raise 401."""
+    if not session or session not in _sessions:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return _sessions[session]
 
 # Load Google OAuth credentials from environment (set in .env.local)
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -164,4 +173,15 @@ def auth_logout(session: Optional[str] = Cookie(None)):
     response = JSONResponse({"message": "Logged out"})
     response.delete_cookie("session")
     return response
+
+
+@router.get("/users", response_model=list[UserResponse])
+def list_users(_current_user: dict = Depends(get_current_user)):
+    """Return all users. Requires authentication."""
+    db = SessionLocal()
+    try:
+        users = db.query(User).order_by(User.created_at).all()
+        return [UserResponse.model_validate(u) for u in users]
+    finally:
+        db.close()
 
