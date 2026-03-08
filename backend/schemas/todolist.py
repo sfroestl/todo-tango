@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from pydantic import BaseModel, Field
 
 
@@ -17,7 +19,8 @@ class TodoItem(BaseModel):
     title: str
     completed: bool = False
     order: int = 0  # Optional; 0 when empty. Sort items by (order, id) for stable ordering.
-
+    created_at: datetime  # UTC
+    completed_at: datetime | None = None  # UTC when completed, None otherwise
 
 class TodoItemCreate(BaseModel):
     title: str

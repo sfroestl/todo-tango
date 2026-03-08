@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from schemas.todolist import (
     TodoItem,
@@ -62,12 +63,15 @@ def create_item(list_id: str, data: TodoItemCreate) -> TodoItem | None:
         return None
     existing = get_items(list_id)
     order = data.order if data.order is not None else len(existing)
+    now = datetime.now(timezone.utc)
     new_item = TodoItem(
         id=f"ti-{uuid.uuid4().hex[:8]}",
         todolist_id=list_id,
         title=data.title.strip(),
         completed=False,
         order=order,
+        created_at=now,
+        completed_at=None,
     )
     MOCK_TODO_ITEMS.append(new_item)
     return new_item
@@ -98,6 +102,10 @@ def update_item(
         payload["title"] = data.title.strip()
     if data.completed is not None:
         payload["completed"] = data.completed
+        if data.completed:
+            payload["completed_at"] = datetime.now(timezone.utc)
+        else:
+            payload["completed_at"] = None
     if data.order is not None:
         payload["order"] = data.order
     updated = TodoItem(**payload)

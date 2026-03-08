@@ -10,6 +10,35 @@ export interface TodoItem {
   title: string
   completed: boolean
   order?: number // optional; 0 when empty. Items are sorted by (order, id).
+  created_at?: string // ISO 8601 UTC
+  completed_at?: string | null // ISO 8601 UTC when completed, null otherwise
+}
+
+function formatLocalDateTime(iso: string | undefined | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const now = new Date()
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear()
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear()
+  const timeStr = d.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  if (isToday) return `Today at ${timeStr}`
+  if (isYesterday) return `Yesterday at ${timeStr}`
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+  }) + ` at ${timeStr}`
 }
 
 export interface TodoList {
@@ -359,9 +388,17 @@ export function TodoListDetail() {
                         className="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
                         disabled={toggleMutation.isPending}
                       />
-                      <span className="flex-1 text-slate-800">
-                        {item.title}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-slate-800">{item.title}</span>
+                        {item.created_at != null && (
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            Created: {formatLocalDateTime(item.created_at)}
+                            {item.completed_at != null && (
+                              <> · Completed: {formatLocalDateTime(item.completed_at)}</>
+                            )}
+                          </p>
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={() => deleteMutation.mutate(item.id)}
@@ -401,9 +438,14 @@ export function TodoListDetail() {
                         className="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
                         disabled={toggleMutation.isPending}
                       />
-                      <span className="flex-1 text-slate-500 line-through">
-                        {item.title}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-slate-500 line-through">{item.title}</span>
+                        {item.completed_at != null && (
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            Completed: {formatLocalDateTime(item.completed_at)}
+                          </p>
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={() => deleteMutation.mutate(item.id)}
