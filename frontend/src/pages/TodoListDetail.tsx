@@ -140,6 +140,15 @@ export function TodoListDetail() {
     [items]
   )
 
+  const incompleteItems = useMemo(
+    () => sortedItems.filter((i) => !i.completed),
+    [sortedItems]
+  )
+  const completedItems = useMemo(
+    () => sortedItems.filter((i) => i.completed),
+    [sortedItems]
+  )
+
   const createMutation = useMutation({
     mutationFn: () => createItem(listId, newTitle.trim()),
     onSuccess: () => {
@@ -178,20 +187,25 @@ export function TodoListDetail() {
     mutationFn: async ({
       itemId,
       direction,
+      within,
     }: {
       itemId: string
       direction: 'up' | 'down'
+      within: TodoItem[]
     }) => {
-      const idx = sortedItems.findIndex((i) => i.id === itemId)
+      const idx = within.findIndex((i) => i.id === itemId)
       if (idx === -1) throw new Error('Item not found')
       const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-      if (swapIdx < 0 || swapIdx >= sortedItems.length)
+      if (swapIdx < 0 || swapIdx >= within.length)
         throw new Error('Cannot move in that direction')
-      const item = sortedItems[idx]
-      const neighbour = sortedItems[swapIdx]
-      // Use list index as order so swap works even when stored order is 0
-      await updateItem(listId, item.id, { order: swapIdx })
-      await updateItem(listId, neighbour.id, { order: idx })
+      const item = within[idx]
+      const neighbour = within[swapIdx]
+      // Swap stored order values only; never use local indices (idx/swapIdx)
+      // so order stays globally consistent across incomplete/completed sections.
+      const orderA = item.order ?? 0
+      const orderB = neighbour.order ?? 0
+      await updateItem(listId, item.id, { order: orderB })
+      await updateItem(listId, neighbour.id, { order: orderA })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -278,72 +292,164 @@ export function TodoListDetail() {
         ) : sortedItems.length === 0 ? (
           <p className="text-slate-600">No items yet. Add one above.</p>
         ) : (
-          <ul className="space-y-2">
-            {sortedItems.map((item, index) => (
-              <li
-                key={item.id}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
-              >
-                <div className="flex flex-col">
-                  <button
-                    type="button"
-                    aria-label="Move up"
-                    disabled={index === 0 || moveMutation.isPending}
-                    onClick={() =>
-                      moveMutation.mutate({ itemId: item.id, direction: 'up' })
-                    }
-                    className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                  >
-                    <ChevronUpIcon />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Move down"
-                    disabled={
-                      index === sortedItems.length - 1 ||
-                      moveMutation.isPending
-                    }
-                    onClick={() =>
-                      moveMutation.mutate({
-                        itemId: item.id,
-                        direction: 'down',
-                      })
-                    }
-                    className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                  >
-                    <ChevronDownIcon />
-                  </button>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={item.completed}
-                  onChange={() =>
-                    toggleMutation.mutate({
-                      itemId: item.id,
-                      completed: !item.completed,
-                    })
-                  }
-                  className="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
-                  disabled={toggleMutation.isPending}
-                />
-                <span
-                  className={`flex-1 text-slate-800 ${
-                    item.completed ? 'line-through text-slate-500' : ''
-                  }`}
-                >
-                  {item.title}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => deleteMutation.mutate(item.id)}
-                  disabled={deleteMutation.isPending}
-                  className="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-8">
+            <section>
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                To do ({incompleteItems.length})
+              </h2>
+              {incompleteItems.length === 0 ? (
+                <p className="text-slate-500">No open items.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {incompleteItems.map((item, index) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                    >
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          aria-label="Move up"
+                          disabled={
+                            index === 0 || moveMutation.isPending
+                          }
+                          onClick={() =>
+                            moveMutation.mutate({
+                              itemId: item.id,
+                              direction: 'up',
+                              within: incompleteItems,
+                            })
+                          }
+                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                        >
+                          <ChevronUpIcon />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Move down"
+                          disabled={
+                            index === incompleteItems.length - 1 ||
+                            moveMutation.isPending
+                          }
+                          onClick={() =>
+                            moveMutation.mutate({
+                              itemId: item.id,
+                              direction: 'down',
+                              within: incompleteItems,
+                            })
+                          }
+                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                        >
+                          <ChevronDownIcon />
+                        </button>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={item.completed}
+                        onChange={() =>
+                          toggleMutation.mutate({
+                            itemId: item.id,
+                            completed: !item.completed,
+                          })
+                        }
+                        className="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
+                        disabled={toggleMutation.isPending}
+                      />
+                      <span className="flex-1 text-slate-800">
+                        {item.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => deleteMutation.mutate(item.id)}
+                        disabled={deleteMutation.isPending}
+                        className="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section>
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Completed ({completedItems.length})
+              </h2>
+              {completedItems.length === 0 ? (
+                <p className="text-slate-500">No completed items yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {completedItems.map((item, index) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                    >
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          aria-label="Move up"
+                          disabled={
+                            index === 0 || moveMutation.isPending
+                          }
+                          onClick={() =>
+                            moveMutation.mutate({
+                              itemId: item.id,
+                              direction: 'up',
+                              within: completedItems,
+                            })
+                          }
+                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                        >
+                          <ChevronUpIcon />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Move down"
+                          disabled={
+                            index === completedItems.length - 1 ||
+                            moveMutation.isPending
+                          }
+                          onClick={() =>
+                            moveMutation.mutate({
+                              itemId: item.id,
+                              direction: 'down',
+                              within: completedItems,
+                            })
+                          }
+                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                        >
+                          <ChevronDownIcon />
+                        </button>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={item.completed}
+                        onChange={() =>
+                          toggleMutation.mutate({
+                            itemId: item.id,
+                            completed: !item.completed,
+                          })
+                        }
+                        className="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
+                        disabled={toggleMutation.isPending}
+                      />
+                      <span className="flex-1 text-slate-500 line-through">
+                        {item.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => deleteMutation.mutate(item.id)}
+                        disabled={deleteMutation.isPending}
+                        className="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
         )}
       </div>
     </div>
