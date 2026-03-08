@@ -41,3 +41,7 @@ htmlcov/
 # Build / misc
 *.log
 .cache/
+
+# SQLite (dev)
+backend/todo_tango.db
+*.db

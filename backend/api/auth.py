@@ -3,6 +3,7 @@ Google OAuth: tokens stay server-side only.
 
 - Backend exchanges the code for tokens; access/refresh tokens are never sent to the browser.
 - Session is a random id stored in an httpOnly cookie; user data lives in server-side store.
+- User is persisted in DB on first login; session stores user_id for API use.
 - Frontend calls /auth/me with credentials: 'include'; use VITE_API_URL=http://localhost:8000
   so the cookie (set by the backend origin) is sent. Proxy requests from the frontend origin
   do not send the backend cookie.
@@ -15,6 +16,9 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Cookie, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
+
+from database import SessionLocal
+from services.user_service import get_or_create_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -106,13 +110,27 @@ async def auth_google_callback(
         user_response.raise_for_status()
         user_info = user_response.json()
 
+    # Persist or update user in DB; session stores user_id for API use
+    db = SessionLocal()
+    try:
+        user = get_or_create_user(
+            db,
+            google_sub=user_info.get("id", ""),
+            email=user_info.get("email", ""),
+            name=user_info.get("name", ""),
+            picture=user_info.get("picture", ""),
+        )
+    finally:
+        db.close()
+
     # Create server-side session (store only what we need; never store raw tokens in cookie)
     session_id = secrets.token_urlsafe(32)
     _sessions[session_id] = {
+        "user_id": user.id,
         "sub": user_info.get("id"),
-        "email": user_info.get("email"),
-        "name": user_info.get("name", ""),
-        "picture": user_info.get("picture", ""),
+        "email": user.email,
+        "name": user.name,
+        "picture": user.picture or "",
     }
 
     # Redirect to frontend success page; set httpOnly session cookie (browser can't read it)
