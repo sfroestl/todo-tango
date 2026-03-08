@@ -4,13 +4,10 @@ User persistence: get or create from Google userinfo.
 from sqlalchemy.orm import Session
 
 from models.user import User
-import logging
-log = logging.getLogger(__name__)
 
 def get_or_create_user(db: Session, *, google_sub: str, email: str, name: str = "", picture: str = "") -> User:
     """Return existing user by google_sub or create one. Updates email/name/picture if existing."""
     user = db.query(User).filter(User.google_sub == google_sub).first()
-    log.info(f"User: {user}")
     if user:
         user.email = email
         user.name = name
