@@ -15,6 +15,7 @@ export interface TodoItem {
 export interface TodoList {
   id: string
   name: string
+  uncompleted_count?: number
 }
 
 function ChevronUpIcon() {

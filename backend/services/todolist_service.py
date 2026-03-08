@@ -18,8 +18,17 @@ MOCK_TODO_ITEMS: list[TodoItem] = []
 
 
 def get_all_todolists() -> list[TodoList]:
-    """Return all todo lists (mocked)."""
-    return MOCK_TODOLISTS
+    """Return all todo lists (mocked) with uncompleted item count."""
+    return [
+        TodoList(
+            id=lst.id,
+            name=lst.name,
+            uncompleted_count=sum(
+                1 for i in MOCK_TODO_ITEMS if i.todolist_id == lst.id and not i.completed
+            ),
+        )
+        for lst in MOCK_TODOLISTS
+    ]
 
 
 def get_todolist(list_id: str) -> TodoList | None:
@@ -32,7 +41,9 @@ def get_todolist(list_id: str) -> TodoList | None:
 
 def create_todolist(data: TodoListCreate) -> TodoList:
     """Create a new todo list (mocked)."""
-    new_list = TodoList(id=str(uuid.uuid4()), name=data.name.strip())
+    new_list = TodoList(
+        id=str(uuid.uuid4()), name=data.name.strip(), uncompleted_count=0
+    )
     MOCK_TODOLISTS.append(new_list)
     return new_list
 

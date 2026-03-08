@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class TodoList(BaseModel):
     id: str
     name: str
+    uncompleted_count: int = 0
 
 
 class TodoListCreate(BaseModel):

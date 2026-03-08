@@ -7,6 +7,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api'
 export interface TodoList {
   id: string
   name: string
+  uncompleted_count: number
 }
 
 async function fetchTodoLists(): Promise<TodoList[]> {
@@ -136,6 +137,11 @@ export function TodoLists() {
                 >
                   <span className="font-medium text-slate-800">{list.name}</span>
                   <span className="text-sm text-slate-500">({list.id})</span>
+                  {list.uncompleted_count > 0 && (
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
+                      {list.uncompleted_count} to do
+                    </span>
+                  )}
                   <span className="ml-auto text-slate-400">→</span>
                 </Link>
               </li>
