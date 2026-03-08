@@ -193,6 +193,10 @@ export function TodoListDetail() {
       direction: 'up' | 'down'
       within: TodoItem[]
     }) => {
+      console.log('within', within);
+      console.log('direction', direction);
+      console.log('itemId', itemId);
+      
       const idx = within.findIndex((i) => i.id === itemId)
       if (idx === -1) throw new Error('Item not found')
       const swapIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -306,7 +310,7 @@ export function TodoListDetail() {
                       key={item.id}
                       className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
                     >
-                      <div className="flex flex-col">
+                      <div className="flex w-8 flex-shrink-0 flex-col items-center">
                         <button
                           type="button"
                           aria-label="Move up"
@@ -379,48 +383,12 @@ export function TodoListDetail() {
                 <p className="text-slate-500">No completed items yet.</p>
               ) : (
                 <ul className="space-y-2">
-                  {completedItems.map((item, index) => (
+                  {completedItems.map((item) => (
                     <li
                       key={item.id}
                       className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
                     >
-                      <div className="flex flex-col">
-                        <button
-                          type="button"
-                          aria-label="Move up"
-                          disabled={
-                            index === 0 || moveMutation.isPending
-                          }
-                          onClick={() =>
-                            moveMutation.mutate({
-                              itemId: item.id,
-                              direction: 'up',
-                              within: completedItems,
-                            })
-                          }
-                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                        >
-                          <ChevronUpIcon />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Move down"
-                          disabled={
-                            index === completedItems.length - 1 ||
-                            moveMutation.isPending
-                          }
-                          onClick={() =>
-                            moveMutation.mutate({
-                              itemId: item.id,
-                              direction: 'down',
-                              within: completedItems,
-                            })
-                          }
-                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                        >
-                          <ChevronDownIcon />
-                        </button>
-                      </div>
+                      <div className="w-8 flex-shrink-0" aria-hidden role="presentation" />
                       <input
                         type="checkbox"
                         checked={item.completed}
