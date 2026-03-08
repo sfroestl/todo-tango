@@ -1,61 +1,30 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
-
-export interface TodoList {
-  id: string
-  name: string
-  uncompleted_count: number
-}
-
-async function fetchTodoLists(): Promise<TodoList[]> {
-  const res = await fetch(`${API_BASE}/todolists`)
-  if (!res.ok) throw new Error('Failed to fetch todo lists')
-  return res.json()
-}
-
-async function createTodoList(name: string): Promise<TodoList> {
-  const res = await fetch(`${API_BASE}/todolists`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
-  })
-  if (!res.ok) throw new Error('Failed to create todo list')
-  return res.json()
-}
+import { useTodoLists, useCreateTodoList } from '../hooks/useTodoLists'
+import { TodoListCard } from '../components/TodoListCard'
 
 export function TodoLists() {
-  const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [newName, setNewName] = useState('')
 
-  const { data: todoLists, isLoading, isError, error } = useQuery({
-    queryKey: ['todolists'],
-    queryFn: fetchTodoLists,
-  })
-
-  const createMutation = useMutation({
-    mutationFn: () => createTodoList(newName.trim()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todolists'] })
-      setNewName('')
-      setShowForm(false)
-    },
-  })
+  const { data: todoLists, isLoading, isError, error } = useTodoLists()
+  const createMutation = useCreateTodoList()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newName.trim()) return
-    createMutation.mutate()
+    createMutation.mutate(newName.trim(), {
+      onSuccess: () => {
+        setNewName('')
+        setShowForm(false)
+      },
+    })
   }
 
   if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-3.5rem)] bg-slate-50 p-6">
         <div className="mx-auto max-w-4xl">
-          <h1 className="text-2xl font-bold text-slate-800 mb-4">Todo lists</h1>
+          <h1 className="mb-4 text-2xl font-bold text-slate-800">Todo lists</h1>
           <p className="text-slate-600">Loading...</p>
         </div>
       </div>
@@ -66,7 +35,7 @@ export function TodoLists() {
     return (
       <div className="min-h-[calc(100vh-3.5rem)] bg-slate-50 p-6">
         <div className="mx-auto max-w-4xl">
-          <h1 className="text-2xl font-bold text-slate-800 mb-4">Todo lists</h1>
+          <h1 className="mb-4 text-2xl font-bold text-slate-800">Todo lists</h1>
           <p className="text-red-600">
             Error: {error?.message ?? 'Failed to load todo lists'}
           </p>
@@ -126,25 +95,7 @@ export function TodoLists() {
         ) : (
           <ul className="space-y-2">
             {todoLists?.map((list) => (
-              <li
-                key={list.id}
-                className="rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-slate-300"
-              >
-                <Link
-                  to="/todo-lists/$listId"
-                  params={{ listId: list.id }}
-                  className="flex items-center gap-3 px-4 py-3 text-left"
-                >
-                  <span className="font-medium text-slate-800">{list.name}</span>
-                  <span className="text-sm text-slate-500">({list.id})</span>
-                  {list.uncompleted_count > 0 && (
-                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-                      {list.uncompleted_count} to do
-                    </span>
-                  )}
-                  <span className="ml-auto text-slate-400">→</span>
-                </Link>
-              </li>
+              <TodoListCard key={list.id} list={list} />
             ))}
           </ul>
         )}

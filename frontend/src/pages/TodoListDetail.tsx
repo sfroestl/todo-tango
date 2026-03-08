@@ -1,162 +1,28 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
-
-export interface TodoItem {
-  id: string
-  todolist_id: string
-  title: string
-  completed: boolean
-  order?: number // optional; 0 when empty. Items are sorted by (order, id).
-  created_at?: string // ISO 8601 UTC
-  completed_at?: string | null // ISO 8601 UTC when completed, null otherwise
-}
-
-function formatLocalDateTime(iso: string | undefined | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  const now = new Date()
-  const isToday =
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear()
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const isYesterday =
-    d.getDate() === yesterday.getDate() &&
-    d.getMonth() === yesterday.getMonth() &&
-    d.getFullYear() === yesterday.getFullYear()
-  const timeStr = d.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-  if (isToday) return `Today at ${timeStr}`
-  if (isYesterday) return `Yesterday at ${timeStr}`
-  return d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-  }) + ` at ${timeStr}`
-}
-
-export interface TodoList {
-  id: string
-  name: string
-  uncompleted_count?: number
-}
-
-function ChevronUpIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="m18 15-6-6-6 6" />
-    </svg>
-  )
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  )
-}
-
-async function fetchTodoList(listId: string): Promise<TodoList | null> {
-  const res = await fetch(`${API_BASE}/todolists`)
-  if (!res.ok) return null
-  const lists: TodoList[] = await res.json()
-  return lists.find((l) => l.id === listId) ?? null
-}
-
-async function fetchItems(listId: string): Promise<TodoItem[]> {
-  const res = await fetch(`${API_BASE}/todolists/${listId}/items`)
-  if (!res.ok) throw new Error('Failed to fetch items')
-  return res.json()
-}
-
-async function createItem(
-  listId: string,
-  title: string
-): Promise<TodoItem> {
-  const res = await fetch(`${API_BASE}/todolists/${listId}/items`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title }),
-  })
-  if (!res.ok) throw new Error('Failed to create item')
-  return res.json()
-}
-
-async function updateItem(
-  listId: string,
-  itemId: string,
-  patch: { title?: string; completed?: boolean; order?: number }
-): Promise<TodoItem> {
-  const res = await fetch(
-    `${API_BASE}/todolists/${listId}/items/${itemId}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    }
-  )
-  if (!res.ok) throw new Error('Failed to update item')
-  return res.json()
-}
-
-async function deleteItem(listId: string, itemId: string): Promise<void> {
-  const res = await fetch(
-    `${API_BASE}/todolists/${listId}/items/${itemId}`,
-    { method: 'DELETE' }
-  )
-  if (!res.ok) throw new Error('Failed to delete item')
-}
+import {
+  useTodoItems,
+  useCreateTodoItem,
+  useUpdateTodoItem,
+  useDeleteTodoItem,
+  useMoveTodoItem,
+} from '../hooks/useTodoItems'
+import { useTodoList } from '../hooks/useTodoLists'
+import { TodoListItem } from '../components/TodoListItem'
+import { CompletionProgress } from '../components/CompletionProgress'
+import { AddTodoItemForm } from '../components/AddTodoItemForm'
 
 export function TodoListDetail() {
   const { listId } = useParams({ from: '/todo-lists/$listId' })
-  const queryClient = useQueryClient()
   const [newTitle, setNewTitle] = useState('')
 
-  const { data: list, isLoading: listLoading } = useQuery({
-    queryKey: ['todolists', listId],
-    queryFn: () => fetchTodoList(listId),
-    enabled: !!listId,
-  })
-
+  const { data: list, isLoading: listLoading } = useTodoList(listId)
   const {
     data: items = [],
     isLoading: itemsLoading,
     isError: itemsError,
     error: itemsErrorObj,
-  } = useQuery({
-    queryKey: ['todolists', listId, 'items'],
-    queryFn: () => fetchItems(listId),
-    enabled: !!listId,
-  })
+  } = useTodoItems(listId)
 
   const sortedItems = useMemo(
     () =>
@@ -178,79 +44,17 @@ export function TodoListDetail() {
     [sortedItems]
   )
 
-  const createMutation = useMutation({
-    mutationFn: () => createItem(listId, newTitle.trim()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['todolists', listId, 'items'],
-      })
-      setNewTitle('')
-    },
-  })
-
-  const toggleMutation = useMutation({
-    mutationFn: ({
-      itemId,
-      completed,
-    }: {
-      itemId: string
-      completed: boolean
-    }) => updateItem(listId, itemId, { completed }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['todolists', listId, 'items'],
-      })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (itemId: string) => deleteItem(listId, itemId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['todolists', listId, 'items'],
-      })
-    },
-  })
-
-  const moveMutation = useMutation({
-    mutationFn: async ({
-      itemId,
-      direction,
-      within,
-    }: {
-      itemId: string
-      direction: 'up' | 'down'
-      within: TodoItem[]
-    }) => {
-      console.log('within', within);
-      console.log('direction', direction);
-      console.log('itemId', itemId);
-      
-      const idx = within.findIndex((i) => i.id === itemId)
-      if (idx === -1) throw new Error('Item not found')
-      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-      if (swapIdx < 0 || swapIdx >= within.length)
-        throw new Error('Cannot move in that direction')
-      const item = within[idx]
-      const neighbour = within[swapIdx]
-      // Swap stored order values only; never use local indices (idx/swapIdx)
-      // so order stays globally consistent across incomplete/completed sections.
-      const orderA = item.order ?? 0
-      const orderB = neighbour.order ?? 0
-      await updateItem(listId, item.id, { order: orderB })
-      await updateItem(listId, neighbour.id, { order: orderA })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['todolists', listId, 'items'],
-      })
-    },
-  })
+  const createMutation = useCreateTodoItem(listId ?? '')
+  const toggleMutation = useUpdateTodoItem(listId ?? '')
+  const deleteMutation = useDeleteTodoItem(listId ?? '')
+  const moveMutation = useMoveTodoItem(listId ?? '')
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newTitle.trim()) return
-    createMutation.mutate()
+    createMutation.mutate(newTitle.trim(), {
+      onSuccess: () => setNewTitle(''),
+    })
   }
 
   if (listLoading || !listId) {
@@ -265,7 +69,10 @@ export function TodoListDetail() {
     return (
       <div className="min-h-[calc(100vh-3.5rem)] bg-slate-50 p-6">
         <p className="text-red-600">List not found.</p>
-        <Link to="/todo-lists" className="mt-2 inline-block text-slate-600 underline">
+        <Link
+          to="/todo-lists"
+          className="mt-2 inline-block text-slate-600 underline"
+        >
           Back to todo lists
         </Link>
       </div>
@@ -278,7 +85,10 @@ export function TodoListDetail() {
         <p className="text-red-600">
           Error: {itemsErrorObj?.message ?? 'Failed to load items'}
         </p>
-        <Link to="/todo-lists" className="mt-2 inline-block text-slate-600 underline">
+        <Link
+          to="/todo-lists"
+          className="mt-2 inline-block text-slate-600 underline"
+        >
           Back to todo lists
         </Link>
       </div>
@@ -296,42 +106,22 @@ export function TodoListDetail() {
             ← Todo lists
           </Link>
         </div>
-        <h1 className="text-2xl font-bold text-slate-800 mb-4">{list.name}</h1>
+        <h1 className="mb-4 text-2xl font-bold text-slate-800">{list.name}</h1>
 
         {!itemsLoading && (
-          <div className="mb-6" role="progressbar" aria-valuenow={sortedItems.length ? Math.round((completedItems.length / sortedItems.length) * 100) : 0} aria-valuemin={0} aria-valuemax={100} aria-label="List completion">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-              <div
-                className="h-full rounded-full bg-blue-600 transition-[width] duration-300 ease-out"
-                style={{
-                  width: sortedItems.length ? `${(completedItems.length / sortedItems.length) * 100}%` : '0%',
-                }}
-              />
-            </div>
-          </div>
+          <CompletionProgress
+            completedCount={completedItems.length}
+            totalCount={sortedItems.length}
+          />
         )}
 
-        <form onSubmit={handleAdd} className="mb-6 flex gap-2">
-          <input
-            type="text"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Add an item…"
-            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-          />
-          <button
-            type="submit"
-            disabled={!newTitle.trim() || createMutation.isPending}
-            className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-          >
-            Add
-          </button>
-        </form>
-        {createMutation.isError && (
-          <p className="mb-2 text-sm text-red-600">
-            {createMutation.error?.message}
-          </p>
-        )}
+        <AddTodoItemForm
+          value={newTitle}
+          onChange={setNewTitle}
+          onSubmit={handleAdd}
+          isPending={createMutation.isPending}
+          error={createMutation.error?.message}
+        />
 
         {itemsLoading ? (
           <p className="text-slate-600">Loading items…</p>
@@ -348,79 +138,37 @@ export function TodoListDetail() {
               ) : (
                 <ul className="space-y-2">
                   {incompleteItems.map((item, index) => (
-                    <li
+                    <TodoListItem
                       key={item.id}
-                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
-                    >
-                      <div className="flex w-8 flex-shrink-0 flex-col items-center">
-                        <button
-                          type="button"
-                          aria-label="Move up"
-                          disabled={
-                            index === 0 || moveMutation.isPending
-                          }
-                          onClick={() =>
-                            moveMutation.mutate({
-                              itemId: item.id,
-                              direction: 'up',
-                              within: incompleteItems,
-                            })
-                          }
-                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                        >
-                          <ChevronUpIcon />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Move down"
-                          disabled={
-                            index === incompleteItems.length - 1 ||
-                            moveMutation.isPending
-                          }
-                          onClick={() =>
-                            moveMutation.mutate({
-                              itemId: item.id,
-                              direction: 'down',
-                              within: incompleteItems,
-                            })
-                          }
-                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                        >
-                          <ChevronDownIcon />
-                        </button>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={item.completed}
-                        onChange={() =>
-                          toggleMutation.mutate({
-                            itemId: item.id,
-                            completed: !item.completed,
-                          })
-                        }
-                        className="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
-                        disabled={toggleMutation.isPending}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-slate-800">{item.title}</span>
-                        {item.created_at != null && (
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            Created: {formatLocalDateTime(item.created_at)}
-                            {item.completed_at != null && (
-                              <> · Completed: {formatLocalDateTime(item.completed_at)}</>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteMutation.mutate(item.id)}
-                        disabled={deleteMutation.isPending}
-                        className="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    </li>
+                      item={item}
+                      showReorder
+                      isReorderDisabled={moveMutation.isPending}
+                      isToggleDisabled={toggleMutation.isPending}
+                      isDeleteDisabled={deleteMutation.isPending}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < incompleteItems.length - 1}
+                      onToggle={() =>
+                        toggleMutation.mutate({
+                          itemId: item.id,
+                          patch: { completed: !item.completed },
+                        })
+                      }
+                      onDelete={() => deleteMutation.mutate(item.id)}
+                      onMoveUp={() =>
+                        moveMutation.mutate({
+                          itemId: item.id,
+                          direction: 'up',
+                          within: incompleteItems,
+                        })
+                      }
+                      onMoveDown={() =>
+                        moveMutation.mutate({
+                          itemId: item.id,
+                          direction: 'down',
+                          within: incompleteItems,
+                        })
+                      }
+                    />
                   ))}
                 </ul>
               )}
@@ -434,40 +182,20 @@ export function TodoListDetail() {
               ) : (
                 <ul className="space-y-2">
                   {completedItems.map((item) => (
-                    <li
+                    <TodoListItem
                       key={item.id}
-                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
-                    >
-                      <div className="w-8 flex-shrink-0" aria-hidden role="presentation" />
-                      <input
-                        type="checkbox"
-                        checked={item.completed}
-                        onChange={() =>
-                          toggleMutation.mutate({
-                            itemId: item.id,
-                            completed: !item.completed,
-                          })
-                        }
-                        className="h-4 w-4 rounded border-slate-300 text-slate-800 focus:ring-slate-500"
-                        disabled={toggleMutation.isPending}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-slate-500 line-through">{item.title}</span>
-                        {item.completed_at != null && (
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            Completed: {formatLocalDateTime(item.completed_at)}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteMutation.mutate(item.id)}
-                        disabled={deleteMutation.isPending}
-                        className="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    </li>
+                      item={item}
+                      showReorder={false}
+                      isToggleDisabled={toggleMutation.isPending}
+                      isDeleteDisabled={deleteMutation.isPending}
+                      onToggle={() =>
+                        toggleMutation.mutate({
+                          itemId: item.id,
+                          patch: { completed: !item.completed },
+                        })
+                      }
+                      onDelete={() => deleteMutation.mutate(item.id)}
+                    />
                   ))}
                 </ul>
               )}
