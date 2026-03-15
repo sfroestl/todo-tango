@@ -3,6 +3,7 @@ Google OAuth: tokens stay server-side only.
 
 - Backend exchanges the code for tokens; access/refresh tokens are never sent to the browser.
 - Session is a random id stored in an httpOnly cookie; user data lives in server-side store.
+- User is persisted in DB on first login; session stores user_id for API use.
 - Frontend calls /auth/me with credentials: 'include'; use VITE_API_URL=http://localhost:8000
   so the cookie (set by the backend origin) is sent. Proxy requests from the frontend origin
   do not send the backend cookie.
@@ -13,10 +14,22 @@ from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Cookie, HTTPException, Query
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from database import SessionLocal
+from models.user import User
+from schemas.user import UserResponse
+from services.user_service import get_or_create_user
+
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def get_current_user(session: Optional[str] = Cookie(None)) -> dict:
+    """Dependency: return current session user dict or raise 401."""
+    if not session or session not in _sessions:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return _sessions[session]
 
 # Load Google OAuth credentials from environment (set in .env.local)
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -106,13 +119,27 @@ async def auth_google_callback(
         user_response.raise_for_status()
         user_info = user_response.json()
 
+    # Persist or update user in DB; session stores user_id for API use
+    db = SessionLocal()
+    try:
+        user = get_or_create_user(
+            db,
+            google_sub=user_info.get("id", ""),
+            email=user_info.get("email", ""),
+            name=user_info.get("name", ""),
+            picture=user_info.get("picture", ""),
+        )
+    finally:
+        db.close()
+
     # Create server-side session (store only what we need; never store raw tokens in cookie)
     session_id = secrets.token_urlsafe(32)
     _sessions[session_id] = {
+        "user_id": user.id,
         "sub": user_info.get("id"),
-        "email": user_info.get("email"),
-        "name": user_info.get("name", ""),
-        "picture": user_info.get("picture", ""),
+        "email": user.email,
+        "name": user.name,
+        "picture": user.picture or "",
     }
 
     # Redirect to frontend success page; set httpOnly session cookie (browser can't read it)
@@ -146,4 +173,15 @@ def auth_logout(session: Optional[str] = Cookie(None)):
     response = JSONResponse({"message": "Logged out"})
     response.delete_cookie("session")
     return response
+
+
+@router.get("/users", response_model=list[UserResponse])
+def list_users(_current_user: dict = Depends(get_current_user)):
+    """Return all users. Requires authentication."""
+    db = SessionLocal()
+    try:
+        users = db.query(User).order_by(User.created_at).all()
+        return [UserResponse.model_validate(u) for u in users]
+    finally:
+        db.close()
 
